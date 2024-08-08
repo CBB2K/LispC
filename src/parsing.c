@@ -41,8 +41,8 @@ int main(int argc, char** argv) {
     "                                                                                   \
       number   : /-?[0-9]+\\.?[0-9]*/ ;                                                 \
       operator : '+' | '-' | '*' | '/' | '%' | \"add\" | \"sub\" | \"mul\" | \"div\" ;  \
-      expr     : <number> | '(' <operator> <expr>+ ')' ;                                \
-      styx     : /^/ <operator> <expr>+ /$/ ;                                           \
+      expr     : <number> | '(' <expr> <operator> <expr> ')' ;                          \
+      styx     : /^/ <expr> <operator> <expr> /$/ ;                                                       \
     ",
     Number, Operator, Expr, Styx);
 
@@ -51,7 +51,6 @@ int main(int argc, char** argv) {
 
   while(1) {
     
-    /* Now in either case readline will be correctly defined */
     char* input = readline("Styx> ");
     add_history(input);
 
