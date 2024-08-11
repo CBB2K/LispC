@@ -27,6 +27,75 @@ void add_history(char* unused) {}
 #include <histedit.h>
 #endif
 
+long eval_op(long x, char* op, long y) {
+  if (strcmp(op, "+") == 0) { return x + y;             }
+  if (strcmp(op, "-") == 0) { return x - y;             }
+  if (strcmp(op, "*") == 0) { return x * y;             }
+  if (strcmp(op, "/") == 0) { return x / y;             }
+  if (strcmp(op, "%") == 0) { return x % y;             }
+  if (strcmp(op, "^") == 0) { return pow(x, y);         }
+
+  if (strcmp(op, "add") == 0) { return x + y;           }
+  if (strcmp(op, "sub") == 0) { return x - y;           }
+  if (strcmp(op, "mul") == 0) { return x * y;           }
+  if (strcmp(op, "div") == 0) { return x / y;           }
+  if (strcmp(op, "mod") == 0) { return x % y;           }
+  if (strcmp(op, "min") == 0) { return (x < y) ? x : y; }
+  if (strcmp(op, "max") == 0) { return (x > y) ? x : y; }
+  
+  return 0;
+}
+
+long eval(mpc_ast_t* t) {
+  /* If tagged as number return it directly. */
+  if (strstr(t->tag, "number")) {
+    return atoi(t->contents);
+  }
+
+  /* The operator is always the second child. */
+  char* op = t->children[1]->contents;
+
+  /* Store the next child in 'x'. */
+  long x = eval(t->children[2]);
+
+  /* If the operator is "min", iterate through all children to find the minimum */
+  if (strcmp(op, "min") == 0) {
+    long min_value = x; // Initialize min_value to the first operand
+    int i = 3;
+    while (strstr(t->children[i]->tag, "expr")) {
+      long y = eval(t->children[i]);
+      if (y < min_value) {
+        min_value = y; // Update min_value if y is smaller
+      }
+      i++;
+    }
+    return min_value; // Return the smallest number
+  }
+
+  /* If the operator is "max" */
+  if (strcmp(op, "max") == 0) {
+    long max_value = x;
+    int i = 3;
+    while (strstr(t->children[i]->tag, "expr")) {
+      long y = eval(t->children[i]);
+      if (y > max_value) {
+        max_value = y;
+      }
+      i++;
+    }
+    return max_value;
+  }
+
+  /* Iterate the remaining children and combine. */
+  int i = 3;
+  while(strstr(t->children[i]->tag, "expr")) {
+    x = eval_op(x, op, eval(t->children[i]));
+    i++;
+  }
+
+  return x;
+}
+
 int main(int argc, char** argv) {
 
   /* Create Some Parsers */
@@ -38,15 +107,15 @@ int main(int argc, char** argv) {
   /* Define them with the following Language */
    
   mpca_lang(MPCA_LANG_DEFAULT,
-    "                                                                                   \
-      number   : /-?[0-9]+\\.?[0-9]*/ ;                                                 \
-      operator : '+' | '-' | '*' | '/' | '%' | \"add\" | \"sub\" | \"mul\" | \"div\" ;  \
-      expr     : <number> | '(' <expr> <operator> <expr> ')' ;                          \
-      styx     : /^/ <expr> <operator> <expr> /$/ ;                                                       \
+    "                                                              \
+      number   : /-?[0-9]+\\.?[0-9]*/ ;                            \
+      operator : '+' | '-' | '*' | '/' | '%' | '^' | \"add\" | \"sub\" | \"mul\" | \"div\" | \"mod\" | \"min\" | \"max\";  \
+      expr     : <number> | '(' <operator> <expr>+ ')' ;           \
+      styx     : /^/ <operator> <expr>+ /$/ ;                      \
     ",
     Number, Operator, Expr, Styx);
 
-  puts("Styx Version 0.0.0.0.2");
+  puts("Styx Version 0.0.0.0.3");
   puts("Press Ctrl+c to Exit\n");
 
   while(1) {
@@ -57,8 +126,9 @@ int main(int argc, char** argv) {
     /* Attempt to Parse the user Input */
     mpc_result_t r;
     if (mpc_parse("<stdin>", input, Styx, &r)) {
-      /* On Success Print the AST */
-      mpc_ast_print(r.output);
+      /* On Success evaluate the AST */
+      long result = eval(r.output);
+      printf("%li\n", result);
       mpc_ast_delete(r.output);
     } else {
       /* Otherwise Print the Error */
