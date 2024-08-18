@@ -25,7 +25,7 @@ enum { LVAL_ERR, LVAL_NUM, LVAL_SYM, LVAL_SEXPR };
 
 typedef struct lval {
   int type;
-  long num;
+  double num;
   /* Error and Symbol types have some string data */
   char* err;
   char* sym;
@@ -35,7 +35,7 @@ typedef struct lval {
 } lval;
 
 /* Construct a pointer to a new Number lval */ 
-lval* lval_num(long x) {
+lval* lval_num(double x) {
   lval* v = malloc(sizeof(lval));
   v->type = LVAL_NUM;
   v->num = x;
@@ -141,7 +141,7 @@ void lval_expr_print(lval* v, char open, char close) {
 
 void lval_print(lval* v) {
   switch (v->type) {
-    case LVAL_NUM:   printf("%li", v->num); break;
+    case LVAL_NUM:   printf("%.10f", v->num); break;
     case LVAL_ERR:   printf("Error: %s", v->err); break;
     case LVAL_SYM:   printf("%s", v->sym); break;
     case LVAL_SEXPR: lval_expr_print(v, '(', ')'); break;
@@ -186,6 +186,7 @@ lval* builtin_op(lval* a, char* op) {
       }
       x->num /= y->num;
     }
+    if (strcmp(op, "%") == 0) { x->num = fmod(x->num, y->num); }
     
     /* Delete element now finished with */
     lval_del(y);
@@ -238,7 +239,7 @@ lval* lval_eval(lval* v) {
 
 lval* lval_read_num(mpc_ast_t* t) {
   errno = 0;
-  long x = strtol(t->contents, NULL, 10);
+  double x = strtod(t->contents, NULL);
   return errno != ERANGE ?
     lval_num(x) : lval_err("invalid number");
 }
@@ -271,28 +272,28 @@ int main(int argc, char** argv) {
   mpc_parser_t* Symbol = mpc_new("symbol");
   mpc_parser_t* Sexpr  = mpc_new("sexpr");
   mpc_parser_t* Expr   = mpc_new("expr");
-  mpc_parser_t* Lispy  = mpc_new("lispy");
+  mpc_parser_t* Styx  = mpc_new("styx");
   
   mpca_lang(MPCA_LANG_DEFAULT,
-    "                                          \
-      number : /-?[0-9]+/ ;                    \
-      symbol : '+' | '-' | '*' | '/' ;         \
-      sexpr  : '(' <expr>* ')' ;               \
-      expr   : <number> | <symbol> | <sexpr> ; \
-      lispy  : /^/ <expr>* /$/ ;               \
+    "                                           \
+      number : /-?[0-9]+([.][0-9]+)?/ ;         \
+      symbol : '+' | '-' | '*' | '/' | '%' ;    \
+      sexpr  : '(' <expr>* ')' ;                \
+      expr   : <number> | <symbol> | <sexpr> ;  \
+      styx  : /^/ <expr>* /$/ ;                 \
     ",
-    Number, Symbol, Sexpr, Expr, Lispy);
+    Number, Symbol, Sexpr, Expr, Styx);
   
-  puts("Lispy Version 0.0.0.0.5");
+  puts("Styx Version 0.0.0.0.5");
   puts("Press Ctrl+c to Exit\n");
   
   while (1) {
   
-    char* input = readline("lispy> ");
+    char* input = readline("styx> ");
     add_history(input);
     
     mpc_result_t r;
-    if (mpc_parse("<stdin>", input, Lispy, &r)) {
+    if (mpc_parse("<stdin>", input, Styx, &r)) {
       lval* x = lval_eval(lval_read(r.output));
       lval_println(x);
       lval_del(x);
@@ -306,7 +307,7 @@ int main(int argc, char** argv) {
     
   }
   
-  mpc_cleanup(5, Number, Symbol, Sexpr, Expr, Lispy);
+  mpc_cleanup(5, Number, Symbol, Sexpr, Expr, Styx);
   
   return 0;
 }
